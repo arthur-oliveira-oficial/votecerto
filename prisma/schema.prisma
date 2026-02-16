@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum TipoUsuario {
+  ADMIN
+  GESTOR
+  PARTICIPANTE
+}
+
+model usuarios {
+  id            Int          @id @default(autoincrement())
+  email         String       @unique
+  password_hash String
+  tipo          TipoUsuario
+  cpf           String?      @unique       // NOVO - integrado de participante
+  nome          String?                    // NOVO - integrado de participante
+  data_criacao  DateTime     @default(now())
+  ultimo_acesso DateTime?
+
+  sessoes       sessoes[]
+  votos         votos[]
+  comunidades   participantes[]
+  comunidades_criadas comunidades[] // NOVO - comunidades criadas pelo usuário
+}
+model sessoes {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descricao   String?
+  data_inicio  DateTime
+  data_fim     DateTime
+  ativa       Boolean  @default(true)
+
+  criador_id  Int
+  criador     usuarios @relation(fields: [criador_id], references: [id])
+
+  comunidade_id Int  // sessão pertence a uma comunidade
+  comunidade   comunidades @relation(fields: [comunidade_id], references: [id])
+
+  projetos projetos[]
+  votos    votos[]
+
+  @@index([criador_id])
+  @@index([comunidade_id])
+}
+
+model projetos {
+  id               Int      @id @default(autoincrement())
+  titulo           String
+  descricao_detalhada String?
+  autor_responsavel String?
+
+  sessao_id Int
+  sessao   sessoes @relation(fields: [sessao_id], references: [id], onDelete: Cascade)
+
+  votos votos[]
+
+  @@unique([sessao_id, titulo])
+}
+
+model votos {
+  id              Int      @id @default(autoincrement())
+  comentario      String?
+  data_voto        DateTime @default(now())
+
+  sessao_id       Int
+  sessao         sessoes @relation(fields: [sessao_id], references: [id])
+
+  projeto_id      Int
+  projeto        projetos @relation(fields: [projeto_id], references: [id])
+
+  usuario_id Int
+  usuario   usuarios @relation(fields: [usuario_id], references: [id])
+
+  @@unique([sessao_id, usuario_id])
+}
+
+model comunidades {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique
+  descricao   String?
+  codigo      String   @unique  // código de convite
+  data_criacao DateTime @default(now())
+
+  criador_id   Int?     // NOVO - quem criou a comunidade
+  criador      usuarios? @relation(fields: [criador_id], references: [id])
+
+  membros     participantes[]
+  sessoes     sessoes[]
+
+  @@index([criador_id])
+}
+
+model participantes {
+  id           Int        @id @default(autoincrement())
+  usuario_id   Int
+  usuario      usuarios    @relation(fields: [usuario_id], references: [id])
+  comunidade_id Int
+  comunidade   comunidades @relation(fields: [comunidade_id], references: [id])
+  data_entrada DateTime   @default(now())
+
+  @@unique([usuario_id, comunidade_id])
+}
